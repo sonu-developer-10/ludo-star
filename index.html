@@ -1,0 +1,201 @@
+<!doctype html>
+<html lang="hi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#08152e">
+  <meta name="description" content="Ludo India — online multiplayer Ludo for friends.">
+  <title>Ludo India — Online Multiplayer</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="bg-orb orb-1"></div>
+  <div class="bg-orb orb-2"></div>
+
+  <main class="app">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-mark">👑</div>
+        <div>
+          <div class="eyebrow">🇮🇳 CLASSIC • ONLINE MULTIPLAYER</div>
+          <h1>Ludo <span>India</span></h1>
+        </div>
+      </div>
+      <div class="top-status">
+        <div class="status-chip"><i id="connectionDot"></i><span id="connectionText">Connecting…</span></div>
+        <div class="status-chip"><span>Firebase</span><b id="authText">Connecting</b></div>
+        <div class="room-badge" id="roomBadge">ROOM —</div>
+      </div>
+    </header>
+
+    <section id="lobby" class="panel lobby">
+      <div class="hero">
+        <div class="hero-copy">
+          <span class="pill">2–4 PLAYERS • LIVE ROOMS</span>
+          <h2>दोस्तों को बुलाओ,<br><em>Ludo शुरू करो!</em></h2>
+          <p>Room code share करो और अलग-अलग mobile/laptop से एक ही board पर खेलो.</p>
+          <div class="hero-points">
+            <span>⚡ Real-time</span>
+            <span>🔒 Firebase rooms</span>
+            <span>📱 Mobile friendly</span>
+          </div>
+        </div>
+        <div class="hero-dice" aria-hidden="true">
+          <div class="dice-glow"></div>
+          <div class="dice-face-art">⚄</div>
+        </div>
+      </div>
+
+      <div class="lobby-grid">
+        <form id="createForm" class="card game-form">
+          <div class="form-icon red-icon">＋</div>
+          <div>
+            <h3>नई Room बनाएं</h3>
+            <p class="form-help">आप host होंगे और game start कर पाएंगे.</p>
+          </div>
+          <label>
+            आपका नाम
+            <input id="createName" maxlength="18" required placeholder="जैसे Sonu" autocomplete="name">
+          </label>
+          <label>
+            Players
+            <select id="playerCount">
+              <option value="2">2 Players</option>
+              <option value="3">3 Players</option>
+              <option value="4" selected>4 Players</option>
+            </select>
+          </label>
+          <button id="createSubmit" class="primary" type="submit" disabled>🎮 Room बनाएं</button>
+        </form>
+
+        <form id="joinForm" class="card game-form">
+          <div class="form-icon blue-icon">↗</div>
+          <div>
+            <h3>Room Join करें</h3>
+            <p class="form-help">Friend से मिला 6-character code डालें.</p>
+          </div>
+          <label>
+            आपका नाम
+            <input id="joinName" maxlength="18" required placeholder="जैसे Rahul" autocomplete="name">
+          </label>
+          <label>
+            Room Code
+            <input id="roomCodeInput" maxlength="6" required placeholder="ABC123" autocomplete="off" spellcheck="false">
+          </label>
+          <button id="joinSubmit" class="secondary" type="submit" disabled>🚀 Join Room</button>
+        </form>
+      </div>
+
+      <div id="setupError" class="error hidden" role="alert"></div>
+
+      <div class="how-card">
+        <div>
+          <strong>कैसे खेलें?</strong>
+          <span>Room बनाओ → code share करो → players join करें → Host Start Game दबाए.</span>
+        </div>
+        <span class="how-badge">READY TO PLAY</span>
+      </div>
+    </section>
+
+    <section id="room" class="panel hidden">
+      <div class="room-head">
+        <div>
+          <div class="room-title-row">
+            <span class="pill" id="roomStatePill">WAITING</span>
+            <span class="room-mini">2–4 players</span>
+          </div>
+          <h2 id="roomTitle">Room</h2>
+          <p id="roomSubtitle">दोस्तों को code भेजें.</p>
+        </div>
+        <div class="room-actions">
+          <button id="shareRoomBtn" class="ghost" type="button">↗ Share</button>
+          <button id="copyCodeBtn" class="ghost" type="button">▣ Copy Code</button>
+          <button id="leaveBtn" class="danger ghost" type="button">Leave</button>
+        </div>
+      </div>
+
+      <div class="players" id="playersList"></div>
+
+      <div id="waitingBox" class="waiting card">
+        <div class="waiting-label">YOUR ROOM CODE</div>
+        <div class="waiting-code" id="bigRoomCode">------</div>
+        <div class="code-underline"></div>
+        <h3>यह code दोस्तों को भेजें</h3>
+        <p>सबके join होने के बाद host <b>Start Game</b> दबाए.</p>
+        <button id="startBtn" class="primary hidden" type="button">🎲 Start Game</button>
+        <div id="startHint" class="small-note"></div>
+      </div>
+
+      <div id="game" class="game-layout hidden">
+        <div class="board-area">
+          <div class="board-topline">
+            <span><b>🇮🇳 LUDO INDIA</b> <small>CLASSIC BOARD</small></span>
+            <span class="safe-key">★ SAFE</span>
+          </div>
+          <div class="board-wrap">
+            <div id="board" class="board" aria-label="Ludo board"></div>
+          </div>
+        </div>
+
+        <aside class="side-panel">
+          <div class="turn-card">
+            <div class="turn-label">CURRENT TURN</div>
+            <div id="turnText">—</div>
+            <div id="turnTimer" class="small-note"></div>
+          </div>
+
+          <button id="rollBtn" class="roll" type="button" disabled aria-label="Roll dice">
+            <span id="diceFace">⚄</span>
+            <span id="rollText">Dice Roll</span>
+          </button>
+
+          <div id="status" class="status" aria-live="polite">Game status…</div>
+
+          <div class="moves-card">
+            <div class="rules-title"><span>📜</span> Game Rules</div>
+            <ul>
+              <li>Token घर से निकालने के लिए <b>6</b> चाहिए.</li>
+              <li>6 या opponent capture पर <b>extra turn</b>.</li>
+              <li>★ Safe cells पर capture नहीं होता.</li>
+              <li>Home पहुंचने के लिए <b>exact roll</b> चाहिए.</li>
+              <li>3 consecutive sixes पर turn खत्म.</li>
+            </ul>
+          </div>
+        </aside>
+      </div>
+    </section>
+  </main>
+
+  <div id="captureFlash" class="capture-flash" aria-live="assertive" aria-atomic="true">
+    <div class="capture-burst">✦</div>
+    <div class="capture-title">AA GAYA SWAD</div>
+    <div id="captureFlashSub" class="capture-sub">Opponent ki goti cut gayi</div>
+  </div>
+
+  <div id="winnerCelebration" class="winner-celebration" aria-live="assertive" aria-atomic="true">
+    <div class="winner-confetti" id="winnerConfetti"></div>
+    <div class="winner-card">
+      <div class="winner-crown">👑</div>
+      <div class="winner-kicker">GAME WINNER</div>
+      <div id="winnerName" class="winner-name">Winner</div>
+      <div id="winnerColor" class="winner-color">Ludo Champion</div>
+      <div class="winner-trophy">🏆</div>
+      <div class="winner-message">Kya game tha! 🎉</div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+ 
+
+<!-- 1. Firebase Core & Realtime Database CDN -->
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+
+<!-- 2. Configuration file (app.js se PEHLE aayega) -->
+<script src="firebase-config.js"></script>
+
+<!-- 3. Aapka App Logic -->
+<script src="app.js"></script>
+</body>
+</html>
