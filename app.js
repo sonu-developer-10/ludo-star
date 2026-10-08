@@ -483,17 +483,27 @@ function renderGameUI(previousState = null) {
   const waiting = gameState.status !== 'PLAYING';
   $('waitingBox')?.classList.toggle('hidden', !waiting);
   $('game')?.classList.toggle('hidden', waiting);
-  const startReady = waiting && gameState.hostColor === myPlayerColor && active.length >= Number(gameState.maxPlayers || 4);
-  $('startBtn')?.classList.toggle('hidden', !(waiting && gameState.hostColor === myPlayerColor));
-  if ($('startBtn')) {
-    $('startBtn').disabled = !startReady;
-    $('startBtn').classList.toggle('startBtn-ready', startReady);
+  // Host and joiners intentionally share the exact same waiting/game shell.
+  // Only the action state differs: the host can start; joiners see the same
+  // button in the same place, disabled until the host starts the game.
+  const requiredPlayers = Number(gameState.maxPlayers || 4);
+  const isHost = gameState.hostColor === myPlayerColor;
+  const startReady = waiting && isHost && active.length >= requiredPlayers;
+  const startBtn = $('startBtn');
+  if (startBtn) {
+    startBtn.classList.remove('hidden');
+    startBtn.disabled = !startReady;
+    startBtn.classList.toggle('startBtn-ready', startReady);
+    startBtn.textContent = isHost ? '🎲 Start Game' : '⏳ Waiting for Host';
+    startBtn.setAttribute('aria-label', isHost ? 'Start Game' : 'Waiting for host');
   }
   if ($('startHint')) {
     $('startHint').textContent = waiting
-      ? (gameState.hostColor === myPlayerColor
-          ? (active.length >= Number(gameState.maxPlayers || 4) ? 'All players joined. Start Game now.' : `${active.length}/${gameState.maxPlayers || 4} players joined. Waiting for players…`)
-          : `Host will start after ${gameState.maxPlayers || 4} players join.`)
+      ? (isHost
+          ? (active.length >= requiredPlayers
+              ? 'All players joined. Start Game now.'
+              : `${active.length}/${requiredPlayers} players joined. Waiting for players…`)
+          : 'You joined this room. Waiting for the host to start the game.')
       : '';
   }
 
