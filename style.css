@@ -240,6 +240,32 @@ body{
 
 
 /* ================================================================
+   V8 TOKEN / CELL ALIGNMENT
+   ================================================================ */
+.cell .token{
+  left:50% !important;
+  top:50% !important;
+  width:84% !important;
+  height:84% !important;
+  min-width:14px;
+  min-height:14px;
+  aspect-ratio:1 / 1;
+  transform:translate(-50%,-50%);
+  margin:0;
+}
+.cell .token.stack-token{width:66% !important;height:66% !important;}
+.cell .token.selectable:hover{transform:translate(-50%,-50%) scale(1.12);}
+.token.home-token{
+  position:relative !important;
+  left:auto !important;
+  top:auto !important;
+  width:88% !important;
+  height:88% !important;
+  aspect-ratio:1 / 1;
+  transform:none !important;
+}
+
+/* ================================================================
    V7 PLAYER FEEDBACK + START CELL + SCREEN-LOCK SAFE UX
    ================================================================ */
 /* Moving tokens are intentionally larger and easier to tap. */
