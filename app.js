@@ -736,27 +736,43 @@ function updateTurnTimer() {
 
 async function initFirebase() {
   try {
-    if (typeof firebase === 'undefined') throw new Error('Firebase SDK load nahi hua.');
+    if (typeof firebase === 'undefined') throw new Error('Firebase SDK load nahi hua. Internet/CDN connection check karein.');
+    if (typeof firebaseConfig === 'undefined') throw new Error('firebase-config.js load nahi hua.');
+
     if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
     db = firebase.database();
+
     const connectedRef = db.ref('.info/connected');
+    let connected = false;
+    const connectionTimeout = setTimeout(() => {
+      if (connected) return;
+      $('connectionText') && ($('connectionText').textContent = 'Offline');
+      $('authText') && ($('authText').textContent = 'Error');
+      $('connectionDot')?.classList.add('offline');
+      $('createSubmit') && ($('createSubmit').disabled = true);
+      $('joinSubmit') && ($('joinSubmit').disabled = true);
+      showError('Firebase connect nahi ho raha. Realtime Database URL, Database creation aur Firebase Rules check karein. Agar Firebase Console mein database kisi aur region mein hai to firebase-config.js ka databaseURL wahi exact URL hona chahiye.');
+    }, 7000);
+
     connectedRef.on('value', snap => {
-      const online = snap.val() === true;
-      $('connectionText') && ($('connectionText').textContent = online ? 'Online' : 'Connecting…');
-      $('authText') && ($('authText').textContent = online ? 'Guest Mode' : 'Offline');
-      $('connectionDot')?.classList.toggle('offline', !online);
-      document.body.classList.toggle('firebase-connected', online);
-      $('createSubmit') && ($('createSubmit').disabled = !online);
-      $('joinSubmit') && ($('joinSubmit').disabled = !online);
+      connected = snap.val() === true;
+      $('connectionText') && ($('connectionText').textContent = connected ? 'Online' : 'Connecting…');
+      $('authText') && ($('authText').textContent = connected ? 'Guest Mode' : 'Connecting');
+      $('connectionDot')?.classList.toggle('offline', !connected);
+      document.body.classList.toggle('firebase-connected', connected);
+      $('createSubmit') && ($('createSubmit').disabled = !connected);
+      $('joinSubmit') && ($('joinSubmit').disabled = !connected);
+      if (connected) { clearTimeout(connectionTimeout); clearError(); }
     });
   } catch (err) {
     console.error(err);
     $('connectionText') && ($('connectionText').textContent = 'Offline');
     $('authText') && ($('authText').textContent = 'Error');
+    $('createSubmit') && ($('createSubmit').disabled = true);
+    $('joinSubmit') && ($('joinSubmit').disabled = true);
     showError(`Firebase setup error: ${err.message}`);
   }
 }
-
 function allocateColor(players, maxPlayers = 4) {
   const order = COLOR_ORDERS[Math.min(4, Math.max(2, Number(maxPlayers) || 4))] || COLOR_ORDERS[4];
   return order.find(color => !players?.[color]) || null;
