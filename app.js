@@ -19,6 +19,7 @@ let captureEventInitialized = false;
 let previousGameState = null;
 let lastWinnerKey = null;
 let winnerCelebrationTimer = null;
+let passPlayMode = false;
 
 const PLAYER_COLORS = ['red', 'green', 'yellow', 'blue'];
 const COLOR_LABELS = { red: 'Red', green: 'Green', yellow: 'Yellow', blue: 'Blue' };
@@ -470,8 +471,14 @@ function renderPlayersUI() {
   $('roomSubtitle') && ($('roomSubtitle').textContent = `${active.length}/${gameState.maxPlayers || 4} players joined.`);
 }
 
-function renderGameUI(previousState = null) {
-  if (!gameState) return;
+function createPassPlayState(count=4){const n=Math.min(4,Math.max(2,Number(count)||4)),colors=COLOR_ORDERS[n],players={};colors.forEach((c,i)=>players[c]=createPlayerTokens(c,'Player '+(i+1)));return {hostColor:colors[0],maxPlayers:n,status:'PLAYING',currentTurn:colors[0],diceValue:null,diceRolled:false,consecutiveSixes:0,turnStartedAt:now(),createdAt:now(),updatedAt:now(),players};}
+function enterPassPlay(){passPlayMode=true;roomId='PASSPLAY';myPlayerColor=null;gameState=createPassPlayState(Number($('playerCount')?.value||4));$('lobby')?.classList.add('hidden');$('room')?.classList.remove('hidden');$('roomBadge')&&($('roomBadge').textContent='LOCAL • PASS & PLAY');$('bigRoomCode')&&($('bigRoomCode').textContent='PASS');$('roomStatePill')&&($('roomStatePill').textContent='PASS & PLAY');$('waitingBox')?.classList.add('hidden');$('game')?.classList.remove('hidden');$('startBtn')?.classList.add('hidden');renderGameUI();showToast('👥 Pass & Play — '+gameState.maxPlayers+' players');}
+function nextLocalTurn(d=0,c=false,h=false){const extra=d===6||c||h;gameState.currentTurn=extra?gameState.currentTurn:getNextPlayerTurn(gameState.currentTurn,gameState);gameState.diceValue=null;gameState.diceRolled=false;gameState.consecutiveSixes=extra&&d===6?Number(gameState.consecutiveSixes||0):0;gameState.turnStartedAt=now();gameState.updatedAt=now();}
+function rollPassPlayDice(){if(!passPlayMode||!gameState||gameState.status!=='PLAYING'||gameState.diceRolled)return;const color=gameState.currentTurn,value=Math.floor(Math.random()*6)+1,s=Number(gameState.consecutiveSixes||0)+(value===6?1:0);if(value===6&&s>=3){gameState.diceValue=null;gameState.diceRolled=false;gameState.consecutiveSixes=0;gameState.currentTurn=getNextPlayerTurn(color,gameState);renderGameUI();showToast('3 consecutive sixes — next player!');return;}gameState.diceValue=value;gameState.diceRolled=true;gameState.consecutiveSixes=s;renderGameUI();const legal=getLegalTokenIds(gameState.players[color].tokens,value);if(!legal.length)setTimeout(()=>{if(passPlayMode&&gameState?.currentTurn===color&&gameState.diceRolled){nextLocalTurn(value);renderGameUI();}},500);else if(legal.length===1)setTimeout(()=>movePassPlayToken(legal[0]),450);else showToast(COLOR_LABELS[color]+' ki turn — goti choose karein');}
+function movePassPlayToken(id){if(!passPlayMode||!gameState||gameState.status!=='PLAYING'||!gameState.diceRolled)return;const color=gameState.currentTurn,d=Number(gameState.diceValue),t=gameState.players[color]?.tokens?.[id];if(!canMoveToken(t,d))return showToast('Ye goti is dice ke saath move nahi kar sakti.');const np=t.isBase?0:Number(t.position)+d,target=np<TRACK_LENGTH?getAbsoluteTrackPosition(color,np):null,safe=target!==null&&SAFE_POSITIONS.includes(target);let cap=false;if(target!==null&&!safe)for(const op of getActiveColors(gameState)){if(op===color)continue;for(const ot of Object.values(gameState.players[op]?.tokens||{}))if(!ot.isBase&&Number(ot.position)<TRACK_LENGTH&&getAbsoluteTrackPosition(op,Number(ot.position))===target){ot.isBase=true;ot.position=-1;cap=true;}}t.isBase=false;t.position=np;const win=Object.values(gameState.players[color].tokens||{}).every(x=>Number(x.position)===FINISH_POSITION);if(win){gameState.status='FINISHED';gameState.winnerColor=color;gameState.winnerName=gameState.players[color].name;gameState.diceRolled=false;gameState.diceValue=null;renderGameUI();return;}nextLocalTurn(d,cap,np===FINISH_POSITION);renderGameUI();if(cap)showToast('🎯 Goti cut gayi! Extra turn.');}
+
+function renderGameUI(previousState = null) { if (!gameState) return;
+  if(passPlayMode){$('lobby')?.classList.add('hidden');$('room')?.classList.remove('hidden');$('roomBadge')&&($('roomBadge').textContent='LOCAL • PASS & PLAY');$('bigRoomCode')&&($('bigRoomCode').textContent='PASS');$('roomStatePill')&&($('roomStatePill').textContent=gameState.status==='FINISHED'?'FINISHED':'PASS & PLAY');$('waitingBox')?.classList.add('hidden');$('game')?.classList.remove('hidden');renderPlayersUI();if(gameState.status==='FINISHED'){const wc=gameState.winnerColor||gameState.currentTurn,w=gameState.winnerName||COLOR_LABELS[wc];$('turnText')&&($('turnText').textContent='🏆 '+w+' Wins!');$('status')&&($('status').textContent=w+' is the Ludo Champion! 🎉');$('rollBtn')&&($('rollBtn').disabled=true);renderTokensUI(previousState);if(lastWinnerKey!=='pass:'+wc+':'+w){lastWinnerKey='pass:'+wc+':'+w;showWinnerCelebration(wc);}return;}const rb=$('rollBtn');if(rb){rb.disabled=!!gameState.diceRolled;rb.classList.toggle('is-my-turn',!gameState.diceRolled);}$('diceFace')&&($('diceFace').textContent=gameState.diceValue?DICE_ICONS[gameState.diceValue-1]:'🎲');$('turnText')&&($('turnText').textContent=(gameState.players?.[gameState.currentTurn]?.name||COLOR_LABELS[gameState.currentTurn])+' ki Turn');$('status')&&($('status').textContent=gameState.diceRolled?'Goti choose karein.':'Phone next player ko pass karein, phir Dice Roll karein.');$('turnTimer')&&($('turnTimer').textContent='Pass the device');renderTokensUI(previousState);return;}
   $('lobby')?.classList.add('hidden');
   $('room')?.classList.remove('hidden');
   $('roomBadge') && ($('roomBadge').textContent = `ROOM — ${roomId || '—'}`);
@@ -713,8 +720,7 @@ async function startGame() {
   showToast(`Game started${count < required ? ` (${count} players)` : ''}!`);
 }
 
-function rollDice() {
-  if (!gameState || !db || gameState.status !== 'PLAYING') return;
+function rollDice() { if(passPlayMode)return rollPassPlayDice(); if (!gameState || !db || gameState.status !== 'PLAYING') return;
   if (gameState.currentTurn !== myPlayerColor) return showToast('Aapka turn nahi hai.');
   if (gameState.diceRolled) return showToast('Pehle current dice ka token move karein.');
 
@@ -753,8 +759,7 @@ function rollDice() {
   return db.ref(`rooms/${roomId}`).update({ diceValue:value, diceRolled:true, consecutiveSixes:sixes, updatedAt:now() });
 }
 
-async function handleTokenClick(tokenId) {
-  if (!gameState || !db || gameState.status !== 'PLAYING') return;
+async function handleTokenClick(tokenId) { if(passPlayMode)return movePassPlayToken(tokenId); if (!gameState || !db || gameState.status !== 'PLAYING') return;
   if (gameState.currentTurn !== myPlayerColor || !gameState.diceRolled) return;
   const dice = Number(gameState.diceValue);
   const token = gameState.players?.[myPlayerColor]?.tokens?.[tokenId];
@@ -883,6 +888,7 @@ function cleanupLocal(redirect) {
 function bindUI(){
   ensureGuestName();
   $('playGuestBtn')?.addEventListener('click',()=>{setGuestMode();if($('createSubmit')&&!$('createSubmit').disabled)$('createForm')?.requestSubmit();});
+  $('passPlayBtn')?.addEventListener('click',enterPassPlay);
   $('createForm')?.addEventListener('submit', async e => {
     e.preventDefault();
     clearError();
