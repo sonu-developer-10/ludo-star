@@ -459,12 +459,13 @@ function renderPlayersUI() {
   $('roomSubtitle') && ($('roomSubtitle').textContent = `${active.length}/${gameState.maxPlayers || 4} players joined.`);
 }
 
-function createPassPlayState(count=4, vsComputer=false) {
+function createPassPlayState(count=4, vsComputer=false, computerCount=1) {
   const n = Math.min(4, Math.max(2, Number(count) || 4));
   const colors = COLOR_ORDERS[n];
   const players = {};
+  const bots = Math.min(n - 1, Math.max(0, Number(computerCount) || (vsComputer ? n - 1 : 0)));
   colors.forEach((c,i) => {
-    const isBot = !!vsComputer && i > 0;
+    const isBot = !!vsComputer && i > 0 && i <= bots;
     players[c] = {
       ...createPlayerTokens(c, isBot ? 'Computer ' + i : 'Player ' + (i + 1)),
       isComputer: isBot
@@ -486,15 +487,41 @@ function createPassPlayState(count=4, vsComputer=false) {
   };
 }
 
+function updateLocalGameOptions(){
+  const mode = $('localMode')?.value || 'passplay';
+  const total = Number($('localPlayerCount')?.value || 4);
+  const wrap = $('computerCountWrap');
+  const countSelect = $('computerCount');
+  const isComputer = mode === 'computer';
+  wrap?.classList.toggle('hidden', !isComputer);
+  if (countSelect) {
+    [...countSelect.options].forEach(option => {
+      const computers = Number(option.value);
+      option.disabled = computers >= total;
+    });
+    if (Number(countSelect.value) >= total) countSelect.value = String(Math.max(1, total - 1));
+  }
+  if ($('localSetupHint')) {
+    $('localSetupHint').textContent = isComputer
+      ? `Aap + ${Number($('computerCount')?.value || 1)} Computer • Total ${total} players`
+      : `${total} players ek hi device par turn-by-turn khelenge.`;
+  }
+}
+
 function enterPassPlay(){
   passPlayMode = true;
-  computerMode = window.confirm('🤖 Computer ke saath khelna hai? OK = Computer, Cancel = Pass & Play');
+  computerMode = $('localMode')?.value === 'computer';
   roomId = 'PASSPLAY';
   myPlayerColor = 'red';
-  const count = Number($('playerCount')?.value || 4);
-  gameState = createPassPlayState(count, computerMode);
+  const totalPlayers = Number($('localPlayerCount')?.value || $('playerCount')?.value || 4);
+  const requestedComputers = Number($('computerCount')?.value || 1);
+  const computerCount = computerMode ? Math.min(totalPlayers - 1, Math.max(1, requestedComputers)) : 0;
+  gameState = createPassPlayState(totalPlayers, computerMode, computerCount);
+  $('localGameSetup')?.classList.add('hidden');
   renderGameUI();
-  showToast(computerMode ? `🤖 Vs Computer — ${gameState.maxPlayers} players` : `👥 Pass & Play — ${gameState.maxPlayers} players`);
+  showToast(computerMode
+    ? `🤖 Aap + ${computerCount} Computer — ${totalPlayers} players`
+    : `👥 Pass & Play — ${totalPlayers} players`);
   scheduleComputerTurn(800);
 }
 
@@ -1082,7 +1109,14 @@ function cleanupLocal(redirect) {
 function bindUI(){
   ensureGuestName();
   $('playGuestBtn')?.addEventListener('click',()=>{setGuestMode();if($('createSubmit')&&!$('createSubmit').disabled)$('createForm')?.requestSubmit();});
-  $('passPlayBtn')?.addEventListener('click',enterPassPlay);
+  $('passPlayBtn')?.addEventListener('click',()=>{
+    $('localGameSetup')?.classList.toggle('hidden');
+    updateLocalGameOptions();
+  });
+  $('localMode')?.addEventListener('change', updateLocalGameOptions);
+  $('localPlayerCount')?.addEventListener('change', updateLocalGameOptions);
+  $('computerCount')?.addEventListener('change', updateLocalGameOptions);
+  $('localStartBtn')?.addEventListener('click', enterPassPlay);
   $('createForm')?.addEventListener('submit', async e => {
     e.preventDefault();
     clearError();
