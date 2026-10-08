@@ -75,9 +75,14 @@ function now() { return Date.now(); }
 function escapeHtml(value) {
   return String(value ?? '').replace(/[&<>'"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
 }
+
+function generateGuestName(){const key='ludo_guest_name_v8';try{const saved=localStorage.getItem(key);if(/^Guest \\d{4}$/.test(saved||''))return saved;const name=`Guest ${Math.floor(1000+Math.random()*9000)}`;localStorage.setItem(key,name);return name}catch{return `Guest ${Math.floor(1000+Math.random()*9000)}`}}
+function ensureGuestName(){const name=generateGuestName();if($('createName')&&!$('createName').value.trim())$('createName').value=name;if($('joinName')&&!$('joinName').value.trim())$('joinName').value=name;return name}
+function setGuestMode(){const name=generateGuestName();if($('createName'))$('createName').value=name;if($('joinName'))$('joinName').value=name;showToast(`🎭 You're playing as ${name}`)}
+
 function normalizeName(value, fallback = 'Player') {
   const name = String(value || '').trim().replace(/\s+/g, ' ').slice(0, 18);
-  return name || fallback;
+  return name || (fallback === 'Player' ? generateGuestName() : fallback);
 }
 function showToast(message) {
   const el = $('toast');
@@ -558,7 +563,7 @@ async function initFirebase() {
     connectedRef.on('value', snap => {
       const online = snap.val() === true;
       $('connectionText') && ($('connectionText').textContent = online ? 'Online' : 'Connecting…');
-      $('authText') && ($('authText').textContent = online ? 'Connected' : 'Offline');
+      $('authText') && ($('authText').textContent = online ? 'Guest Mode' : 'Offline');
       $('connectionDot')?.classList.toggle('offline', !online);
       document.body.classList.toggle('firebase-connected', online);
       $('createSubmit') && ($('createSubmit').disabled = !online);
@@ -865,7 +870,9 @@ function cleanupLocal(redirect) {
   window.history.replaceState({}, document.title, window.location.pathname);
 }
 
-function bindUI() {
+function bindUI(){
+  ensureGuestName();
+  $('playGuestBtn')?.addEventListener('click',()=>{setGuestMode();if($('createSubmit')&&!$('createSubmit').disabled)$('createForm')?.requestSubmit();});
   $('createForm')?.addEventListener('submit', async e => {
     e.preventDefault();
     clearError();
@@ -892,11 +899,13 @@ function bindUI() {
 
 document.addEventListener('DOMContentLoaded', async () => {
   generateBoardUI();
+  ensureGuestName();
   bindUI();
   await initFirebase();
 
   const urlRoom = new URLSearchParams(location.search).get('room');
   if (urlRoom) {
+    ensureGuestName();
     $('roomCodeInput') && ($('roomCodeInput').value = urlRoom.toUpperCase().slice(0,6));
     $('joinName')?.focus();
   }
