@@ -34,12 +34,11 @@
         <div class="hero-copy">
           <span class="pill">2–4 PLAYERS • LIVE ROOMS</span>
           <h2>दोस्तों को बुलाओ,<br><em>Ludo शुरू करो!</em></h2>
-          <p>Room code share करो और अलग-अलग mobile/laptop से एक ही board पर खेलो.</p>
+          <p>Login/signup की जरूरत नहीं — guest name के साथ room बनाओ और दोस्तों के साथ तुरंत खेलो.</p>
           <div class="hero-points">
-            <span>⚡ Real-time</span>
-            <span>🔒 Firebase rooms</span>
-            <span>📱 Mobile friendly</span>
+            <span>⚡ Real-time</span><span>🎭 Guest play</span><span>🏆 Indian style</span><span>📱 Mobile friendly</span>
           </div>
+          <div class="guest-cta"><div><b>Login ki zarurat nahi</b><span>Instantly play with an automatic Guest name.</span></div><button id="playGuestBtn" class="guest-primary" type="button">🎭 Play as Guest</button></div>
         </div>
         <div class="hero-dice" aria-hidden="true">
           <div class="dice-glow"></div>
@@ -55,8 +54,8 @@
             <p class="form-help">आप host होंगे और game start कर पाएंगे.</p>
           </div>
           <label>
-            आपका नाम
-            <input id="createName" maxlength="18" required placeholder="जैसे Sonu" autocomplete="name">
+            आपका नाम <span class="optional-label">Optional</span>
+            <input id="createName" maxlength="18" placeholder="Guest name auto-generated" autocomplete="name">
           </label>
           <label>
             Players
@@ -76,8 +75,8 @@
             <p class="form-help">Friend से मिला 6-character code डालें.</p>
           </div>
           <label>
-            आपका नाम
-            <input id="joinName" maxlength="18" required placeholder="जैसे Rahul" autocomplete="name">
+            आपका नाम <span class="optional-label">Optional</span>
+            <input id="joinName" maxlength="18" placeholder="Guest name auto-generated" autocomplete="name">
           </label>
           <label>
             Room Code
