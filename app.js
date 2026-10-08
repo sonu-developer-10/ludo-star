@@ -29,7 +29,7 @@ const START_POSITIONS = { red: 1, green: 14, yellow: 27, blue: 40 };
 // The visual start cells are the first playable cells after each corner.
 // Red now starts from cell-7-2 (not cell-7-1), matching the intended board.
 
-const FINISH_POSITION = 57;
+const FINISH_POSITION = 56;
 const TRACK_LENGTH = 52;
 // Four visible star/safe cells from the supplied reference board.
 // Start cells are protected too, but they do NOT get a star icon.
@@ -168,7 +168,7 @@ function getAbsoluteTrackPosition(color, progress) {
 function getStartCoord(color) { return START_COORDINATES[color]; }
 function getTokenCoord(color, position) {
   if (position < 0) return null;
-  if (position < TRACK_LENGTH) return getTrackCoord(getAbsoluteTrackPosition(color, position));
+  if (position < TRACK_LENGTH - 1) return getTrackCoord(getAbsoluteTrackPosition(color, position));
   if (position === FINISH_POSITION) return [8,8];
   return HOME_LANES[color][Math.min(4, position - TRACK_LENGTH)];
 }
@@ -783,7 +783,7 @@ async function moveTokenAndResolve(tokenId, dice, automatic = false) {
     if (!startCoord) return;
   }
   const reachedHome = newPosition === FINISH_POSITION;
-  const target = newPosition < TRACK_LENGTH ? getAbsoluteTrackPosition(myPlayerColor, newPosition) : null;
+  const target = newPosition < TRACK_LENGTH - 1 ? getAbsoluteTrackPosition(myPlayerColor, newPosition) : null;
   const safe = target !== null && SAFE_POSITIONS.includes(target);
   const updates = {};
   let captured = false;
