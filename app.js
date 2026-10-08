@@ -486,6 +486,18 @@ function createPassPlayState(count=4, vsComputer=false) {
   };
 }
 
+function enterPassPlay(){
+  passPlayMode = true;
+  computerMode = window.confirm('🤖 Computer ke saath khelna hai? OK = Computer, Cancel = Pass & Play');
+  roomId = 'PASSPLAY';
+  myPlayerColor = 'red';
+  const count = Number($('playerCount')?.value || 4);
+  gameState = createPassPlayState(count, computerMode);
+  renderGameUI();
+  showToast(computerMode ? `🤖 Vs Computer — ${gameState.maxPlayers} players` : `👥 Pass & Play — ${gameState.maxPlayers} players`);
+  scheduleComputerTurn(800);
+}
+
 function isComputerTurn() {
   return passPlayMode && computerMode && !!gameState?.players?.[gameState.currentTurn]?.isComputer;
 }
