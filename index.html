@@ -39,6 +39,33 @@
             <span>⚡ Real-time</span><span>🎭 Guest play</span><span>🏆 Indian style</span><span>📱 Mobile friendly</span>
           </div>
           <div class="guest-cta"><div><b>Login ki zarurat nahi</b><span>Instantly play with an automatic Guest name.</span></div><div class="guest-actions"><button id="playGuestBtn" class="guest-primary" type="button">🎭 Play as Guest</button><button id="passPlayBtn" class="guest-secondary" type="button">👥 Pass &amp; Play</button></div></div>
+          <div id="localGameSetup" class="local-game-setup hidden">
+            <div class="local-setup-title">🎮 Local Game Setup</div>
+            <div class="local-setup-grid">
+              <label>Game Mode
+                <select id="localMode">
+                  <option value="passplay">👥 Pass &amp; Play</option>
+                  <option value="computer">🤖 Play with Computer</option>
+                </select>
+              </label>
+              <label>Total Players
+                <select id="localPlayerCount">
+                  <option value="2">2 Players</option>
+                  <option value="3">3 Players</option>
+                  <option value="4" selected>4 Players</option>
+                </select>
+              </label>
+              <label id="computerCountWrap" class="hidden">Computers
+                <select id="computerCount">
+                  <option value="1">1 Computer</option>
+                  <option value="2">2 Computers</option>
+                  <option value="3">3 Computers</option>
+                </select>
+              </label>
+            </div>
+            <div id="localSetupHint" class="local-setup-hint">2–4 players ek hi device par turn-by-turn khelenge.</div>
+            <button id="localStartBtn" class="primary" type="button">🎲 Start Local Game</button>
+          </div>
         </div>
         <div class="hero-dice" aria-hidden="true">
           <div class="dice-glow"></div>
