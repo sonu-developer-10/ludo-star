@@ -20,16 +20,18 @@ let previousGameState = null;
 let lastWinnerKey = null;
 let winnerCelebrationTimer = null;
 let passPlayMode = false;
+let computerMode = false;
+let computerTurnTimer = null;
 
 const PLAYER_COLORS = ['red', 'green', 'yellow', 'blue'];
 const COLOR_LABELS = { red: 'Red', green: 'Green', yellow: 'Yellow', blue: 'Blue' };
 // Start cells match the supplied reference board exactly.
 // The existing 52-cell visual track uses these absolute indices.
-const START_POSITIONS = { red: 1, green: 14, yellow: 27, blue: 40 };
+const START_POSITIONS = { red: 1, green: 14, yellow: 28, blue: 41 };
 // The visual start cells are the first playable cells after each corner.
 // Red now starts from cell-7-2 (not cell-7-1), matching the intended board.
 
-const FINISH_POSITION = 56;
+const FINISH_POSITION = 57;
 const TRACK_LENGTH = 52;
 // Four visible star/safe cells from the supplied reference board.
 // Start cells are protected too, but they do NOT get a star icon.
@@ -37,7 +39,7 @@ const STAR_SAFE_POSITIONS = [9, 22, 35, 48];
 const START_SAFE_POSITIONS = Object.values(START_POSITIONS);
 const START_COORDINATES = {
   red: [7,2],
-  green: [2,10],
+  green: [2,9],
   yellow: [9,14],
   blue: [14,7]
 };
@@ -55,7 +57,7 @@ const TURN_SECONDS = 30;
 // 52 common-track cells, clockwise, with red starting at row 7 / col 1.
 const TRACK = [
   [7,1],[7,2],[7,3],[7,4],[7,5],[7,6],[6,7],[5,7],[4,7],[3,7],[2,7],[1,7],[1,8],[1,9],
-  [2,10],[3,9],[4,9],[5,9],[6,9],[7,9],[7,10],[7,11],[7,12],[7,13],[7,14],[7,15],[8,15],[9,15],
+  [2,9],[3,9],[4,9],[5,9],[6,9],[7,9],[7,10],[7,11],[7,12],[7,13],[7,14],[7,15],[8,15],[9,15],
   [9,14],[9,13],[9,12],[9,11],[9,10],[10,9],[11,9],[12,9],[13,9],[14,9],[15,9],[15,8],[15,7],
   [14,7],[13,7],[12,7],[11,7],[10,7],[9,6],[9,5],[9,4],[9,3],[9,2],[9,1],[8,1]
 ];
@@ -168,7 +170,7 @@ function getAbsoluteTrackPosition(color, progress) {
 function getStartCoord(color) { return START_COORDINATES[color]; }
 function getTokenCoord(color, position) {
   if (position < 0) return null;
-  if (position < TRACK_LENGTH - 1) return getTrackCoord(getAbsoluteTrackPosition(color, position));
+  if (position < TRACK_LENGTH) return getTrackCoord(getAbsoluteTrackPosition(color, position));
   if (position === FINISH_POSITION) return [8,8];
   return HOME_LANES[color][Math.min(4, position - TRACK_LENGTH)];
 }
@@ -282,45 +284,31 @@ function getHomeTokenCenter(color, tokenId) {
   return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
 }
 
-async function animateTokenSteps(color, tokenId, fromToken, toToken) {
+function showRoutePath(color, fromToken, toToken) {
   const fromPos = fromToken?.isBase ? -1 : Number(fromToken?.position ?? -1);
   const toPos = toToken?.isBase ? -1 : Number(toToken?.position ?? -1);
   if (toPos < 0 || fromPos === toPos || toPos < fromPos) return;
+
   const path = getMovementPath(color, fromPos, toPos, fromPos < 0);
-  if (!path.length || path.length > 12) return;
+  if (!path.length) return;
 
-  const token = $(`${color}-${tokenId}`);
-  const board = $('board');
-  if (!token || !board) return;
-  const start = fromPos < 0 ? getHomeTokenCenter(color, tokenId) : getCellCenter(getTokenCoord(color, fromPos));
-  if (!start) return;
+  document.querySelectorAll('.route-highlight,.route-highlight-current')
+    .forEach(el => el.classList.remove('route-highlight','route-highlight-current'));
 
-  const clone = token.cloneNode(true);
-  clone.removeAttribute('id');
-  clone.classList.remove('selectable');
-  clone.classList.add('moving-clone');
-  clone.style.position = 'fixed';
-  clone.style.left = `${start.x}px`;
-  clone.style.top = `${start.y}px`;
-  clone.style.width = `${Math.max(24, token.getBoundingClientRect().width)}px`;
-  clone.style.height = `${Math.max(24, token.getBoundingClientRect().height)}px`;
-  clone.style.transform = 'translate(-50%, -50%) scale(1.08)';
-  clone.style.zIndex = '100000';
-  document.body.appendChild(clone);
-  token.style.visibility = 'hidden';
+  path.forEach((pos, index) => {
+    const coord = getTokenCoord(color, pos);
+    const cell = coord ? $(getCellId(coord[0], coord[1])) : null;
+    if (!cell) return;
+    setTimeout(() => {
+      cell.classList.add(index === path.length - 1 ? 'route-highlight-current' : 'route-highlight');
+    }, index * 95);
+  });
 
-  for (const pos of path) {
-    const center = getCellCenter(getTokenCoord(color, pos));
-    if (!center) continue;
-    clone.style.transition = 'left .18s cubic-bezier(.2,.8,.25,1), top .18s cubic-bezier(.2,.8,.25,1), transform .18s ease';
-    clone.style.left = `${center.x}px`;
-    clone.style.top = `${center.y}px`;
-    clone.style.transform = 'translate(-50%, -50%) scale(1.08)';
-    await new Promise(resolve => setTimeout(resolve, 190));
-  }
-  clone.remove();
-  const finalToken = $(`${color}-${tokenId}`);
-  if (finalToken) finalToken.style.visibility = '';
+  const total = path.length * 95 + 850;
+  setTimeout(() => {
+    document.querySelectorAll('.route-highlight,.route-highlight-current')
+      .forEach(el => el.classList.remove('route-highlight','route-highlight-current'));
+  }, total);
 }
 
 function createWinnerConfetti() {
@@ -422,7 +410,7 @@ function renderTokensUI(previousState = null) {
         const fromPos = fromToken?.isBase ? -1 : Number(fromToken?.position ?? -1);
         const toPos = toToken?.isBase ? -1 : Number(toToken?.position ?? -1);
         if (toPos > fromPos && toPos >= 0 && toPos - fromPos <= 6) {
-          animateTokenSteps(color, tokenId, fromToken, toToken);
+          showRoutePath(color, fromToken, toToken);
         }
       }
     }
@@ -471,14 +459,189 @@ function renderPlayersUI() {
   $('roomSubtitle') && ($('roomSubtitle').textContent = `${active.length}/${gameState.maxPlayers || 4} players joined.`);
 }
 
-function createPassPlayState(count=4){const n=Math.min(4,Math.max(2,Number(count)||4)),colors=COLOR_ORDERS[n],players={};colors.forEach((c,i)=>players[c]=createPlayerTokens(c,'Player '+(i+1)));return {hostColor:colors[0],maxPlayers:n,status:'PLAYING',currentTurn:colors[0],diceValue:null,diceRolled:false,consecutiveSixes:0,turnStartedAt:now(),createdAt:now(),updatedAt:now(),players};}
-function enterPassPlay(){passPlayMode=true;roomId='PASSPLAY';myPlayerColor=null;gameState=createPassPlayState(Number($('playerCount')?.value||4));$('lobby')?.classList.add('hidden');$('room')?.classList.remove('hidden');$('roomBadge')&&($('roomBadge').textContent='LOCAL • PASS & PLAY');$('bigRoomCode')&&($('bigRoomCode').textContent='PASS');$('roomStatePill')&&($('roomStatePill').textContent='PASS & PLAY');$('waitingBox')?.classList.add('hidden');$('game')?.classList.remove('hidden');$('startBtn')?.classList.add('hidden');renderGameUI();showToast('👥 Pass & Play — '+gameState.maxPlayers+' players');}
-function nextLocalTurn(d=0,c=false,h=false){const extra=d===6||c||h;gameState.currentTurn=extra?gameState.currentTurn:getNextPlayerTurn(gameState.currentTurn,gameState);gameState.diceValue=null;gameState.diceRolled=false;gameState.consecutiveSixes=extra&&d===6?Number(gameState.consecutiveSixes||0):0;gameState.turnStartedAt=now();gameState.updatedAt=now();}
-function rollPassPlayDice(){if(!passPlayMode||!gameState||gameState.status!=='PLAYING'||gameState.diceRolled)return;const color=gameState.currentTurn,value=Math.floor(Math.random()*6)+1,s=Number(gameState.consecutiveSixes||0)+(value===6?1:0);if(value===6&&s>=3){gameState.diceValue=null;gameState.diceRolled=false;gameState.consecutiveSixes=0;gameState.currentTurn=getNextPlayerTurn(color,gameState);renderGameUI();showToast('3 consecutive sixes — next player!');return;}gameState.diceValue=value;gameState.diceRolled=true;gameState.consecutiveSixes=s;renderGameUI();const legal=getLegalTokenIds(gameState.players[color].tokens,value);if(!legal.length)setTimeout(()=>{if(passPlayMode&&gameState?.currentTurn===color&&gameState.diceRolled){nextLocalTurn(value);renderGameUI();}},500);else if(legal.length===1)setTimeout(()=>movePassPlayToken(legal[0]),450);else showToast(COLOR_LABELS[color]+' ki turn — goti choose karein');}
-function movePassPlayToken(id){if(!passPlayMode||!gameState||gameState.status!=='PLAYING'||!gameState.diceRolled)return;const color=gameState.currentTurn,d=Number(gameState.diceValue),t=gameState.players[color]?.tokens?.[id];if(!canMoveToken(t,d))return showToast('Ye goti is dice ke saath move nahi kar sakti.');const np=t.isBase?0:Number(t.position)+d,target=np<TRACK_LENGTH?getAbsoluteTrackPosition(color,np):null,safe=target!==null&&SAFE_POSITIONS.includes(target);let cap=false;if(target!==null&&!safe)for(const op of getActiveColors(gameState)){if(op===color)continue;for(const ot of Object.values(gameState.players[op]?.tokens||{}))if(!ot.isBase&&Number(ot.position)<TRACK_LENGTH&&getAbsoluteTrackPosition(op,Number(ot.position))===target){ot.isBase=true;ot.position=-1;cap=true;}}t.isBase=false;t.position=np;const win=Object.values(gameState.players[color].tokens||{}).every(x=>Number(x.position)===FINISH_POSITION);if(win){gameState.status='FINISHED';gameState.winnerColor=color;gameState.winnerName=gameState.players[color].name;gameState.diceRolled=false;gameState.diceValue=null;renderGameUI();return;}nextLocalTurn(d,cap,np===FINISH_POSITION);renderGameUI();if(cap)showToast('🎯 Goti cut gayi! Extra turn.');}
+function createPassPlayState(count=4, vsComputer=false) {
+  const n = Math.min(4, Math.max(2, Number(count) || 4));
+  const colors = COLOR_ORDERS[n];
+  const players = {};
+  colors.forEach((c,i) => {
+    const isBot = !!vsComputer && i > 0;
+    players[c] = {
+      ...createPlayerTokens(c, isBot ? 'Computer ' + i : 'Player ' + (i + 1)),
+      isComputer: isBot
+    };
+  });
+  return {
+    hostColor: colors[0],
+    maxPlayers: n,
+    status: 'PLAYING',
+    currentTurn: colors[0],
+    diceValue: null,
+    diceRolled: false,
+    consecutiveSixes: 0,
+    turnStartedAt: now(),
+    createdAt: now(),
+    updatedAt: now(),
+    mode: vsComputer ? 'COMPUTER' : 'PASS_PLAY',
+    players
+  };
+}
+
+function isComputerTurn() {
+  return passPlayMode && computerMode && !!gameState?.players?.[gameState.currentTurn]?.isComputer;
+}
+
+function clearComputerTurnTimer() {
+  clearTimeout(computerTurnTimer);
+  computerTurnTimer = null;
+}
+
+function scheduleComputerTurn(delay=650) {
+  clearComputerTurnTimer();
+  if (!isComputerTurn() || gameState?.status !== 'PLAYING') return;
+  computerTurnTimer = setTimeout(() => {
+    computerTurnTimer = null;
+    if (isComputerTurn() && !gameState?.diceRolled) rollPassPlayDice(true);
+  }, delay);
+}
+
+function chooseComputerToken(color, dice) {
+  const tokens = gameState?.players?.[color]?.tokens || {};
+  const legal = getLegalTokenIds(tokens, dice);
+  if (!legal.length) return null;
+
+  // Prefer a capture, then a home finish, then opening a base token on 6,
+  // otherwise advance the token that is furthest along.
+  const capture = legal.find(id => {
+    const t = tokens[id];
+    const np = t.isBase ? 0 : Number(t.position) + dice;
+    const target = np < TRACK_LENGTH ? getAbsoluteTrackPosition(color, np) : null;
+    if (target === null || SAFE_POSITIONS.includes(target)) return false;
+    return getActiveColors(gameState).some(op =>
+      op !== color && Object.values(gameState.players?.[op]?.tokens || {}).some(ot =>
+        !ot.isBase && Number(ot.position) < TRACK_LENGTH &&
+        getAbsoluteTrackPosition(op, Number(ot.position)) === target
+      )
+    );
+  });
+  if (capture) return capture;
+
+  const home = legal.find(id => {
+    const t=tokens[id];
+    return (t.isBase ? 0 : Number(t.position)+dice) === FINISH_POSITION;
+  });
+  if (home) return home;
+
+  const open = legal.find(id => tokens[id]?.isBase);
+  if (open) return open;
+
+  return legal.sort((a,b) => Number(tokens[b]?.position||0)-Number(tokens[a]?.position||0))[0];
+}
+
+function nextLocalTurn(d=0,c=false,h=false) {
+  const extra=d===6||c||h;
+  gameState.currentTurn=extra?gameState.currentTurn:getNextPlayerTurn(gameState.currentTurn,gameState);
+  gameState.diceValue=null;
+  gameState.diceRolled=false;
+  gameState.consecutiveSixes=extra&&d===6?Number(gameState.consecutiveSixes||0):0;
+  gameState.turnStartedAt=now();
+  gameState.updatedAt=now();
+  renderGameUI();
+  scheduleComputerTurn();
+}
+
+function rollPassPlayDice(fromComputer=false) {
+  if (!passPlayMode || !gameState || gameState.status!=='PLAYING' || gameState.diceRolled) return;
+  if (computerMode && isComputerTurn() && !fromComputer) return;
+
+  const color=gameState.currentTurn;
+  const value=Math.floor(Math.random()*6)+1;
+  const s=Number(gameState.consecutiveSixes||0)+(value===6?1:0);
+
+  if(value===6 && s>=3){
+    gameState.diceValue=null;
+    gameState.diceRolled=false;
+    gameState.consecutiveSixes=0;
+    gameState.currentTurn=getNextPlayerTurn(color,gameState);
+    renderGameUI();
+    showToast('3 consecutive sixes — next player!');
+    scheduleComputerTurn(700);
+    return;
+  }
+
+  gameState.diceValue=value;
+  gameState.diceRolled=true;
+  gameState.consecutiveSixes=s;
+  renderGameUI();
+
+  const legal=getLegalTokenIds(gameState.players[color].tokens,value);
+  if(!legal.length){
+    setTimeout(()=>{
+      if(passPlayMode&&gameState?.currentTurn===color&&gameState.diceRolled){
+        nextLocalTurn(value);
+        showToast('No legal move — turn passed.');
+      }
+    },650);
+  } else if(legal.length===1){
+    setTimeout(()=>movePassPlayToken(legal[0]), isComputerTurn()?500:450);
+  } else if(isComputerTurn()){
+    setTimeout(()=>{
+      if(isComputerTurn() && gameState.diceRolled){
+        const pick=chooseComputerToken(color,value);
+        if(pick) movePassPlayToken(pick);
+      }
+    },550);
+  } else {
+    showToast(COLOR_LABELS[color]+' ki turn — goti choose karein');
+  }
+}
+
+function movePassPlayToken(id){
+  if(!passPlayMode||!gameState||gameState.status!=='PLAYING'||!gameState.diceRolled)return;
+  const color=gameState.currentTurn;
+  if(computerMode && gameState.players?.[color]?.isComputer===true && !computerMode)return;
+  const d=Number(gameState.diceValue);
+  const t=gameState.players[color]?.tokens?.[id];
+  if(!canMoveToken(t,d))return showToast('Ye goti is dice ke saath move nahi kar sakti.');
+
+  const before=JSON.parse(JSON.stringify(t));
+  const np=t.isBase?0:Number(t.position)+d;
+  const target=np<TRACK_LENGTH?getAbsoluteTrackPosition(color,np):null;
+  const safe=target!==null&&SAFE_POSITIONS.includes(target);
+  let cap=false;
+
+  if(target!==null&&!safe) for(const op of getActiveColors(gameState)){
+    if(op===color)continue;
+    for(const ot of Object.values(gameState.players[op]?.tokens||{}))
+      if(!ot.isBase&&Number(ot.position)<TRACK_LENGTH&&getAbsoluteTrackPosition(op,Number(ot.position))===target){
+        ot.isBase=true;ot.position=-1;cap=true;
+      }
+  }
+
+  t.isBase=false;t.position=np;
+  const win=Object.values(gameState.players[color].tokens||{}).every(x=>Number(x.position)===FINISH_POSITION);
+  if(win){
+    gameState.status='FINISHED';
+    gameState.winnerColor=color;
+    gameState.winnerName=gameState.players[color].name;
+    gameState.diceRolled=false;
+    gameState.diceValue=null;
+    renderGameUI();
+    showRoutePath(color,before,t);
+    clearComputerTurnTimer();
+    return;
+  }
+
+  gameState.diceRolled=false;
+  gameState.diceValue=null;
+  nextLocalTurn(d,cap,np===FINISH_POSITION);
+  renderGameUI();
+  showRoutePath(color,before,t);
+  if(cap)showToast('🎯 Goti cut gayi! Extra turn.');
+}
+
 
 function renderGameUI(previousState = null) { if (!gameState) return;
-  if(passPlayMode){$('lobby')?.classList.add('hidden');$('room')?.classList.remove('hidden');$('roomBadge')&&($('roomBadge').textContent='LOCAL • PASS & PLAY');$('bigRoomCode')&&($('bigRoomCode').textContent='PASS');$('roomStatePill')&&($('roomStatePill').textContent=gameState.status==='FINISHED'?'FINISHED':'PASS & PLAY');$('waitingBox')?.classList.add('hidden');$('game')?.classList.remove('hidden');renderPlayersUI();if(gameState.status==='FINISHED'){const wc=gameState.winnerColor||gameState.currentTurn,w=gameState.winnerName||COLOR_LABELS[wc];$('turnText')&&($('turnText').textContent='🏆 '+w+' Wins!');$('status')&&($('status').textContent=w+' is the Ludo Champion! 🎉');$('rollBtn')&&($('rollBtn').disabled=true);renderTokensUI(previousState);if(lastWinnerKey!=='pass:'+wc+':'+w){lastWinnerKey='pass:'+wc+':'+w;showWinnerCelebration(wc);}return;}const rb=$('rollBtn');if(rb){rb.disabled=!!gameState.diceRolled;rb.classList.toggle('is-my-turn',!gameState.diceRolled);}$('diceFace')&&($('diceFace').textContent=gameState.diceValue?DICE_ICONS[gameState.diceValue-1]:'🎲');$('turnText')&&($('turnText').textContent=(gameState.players?.[gameState.currentTurn]?.name||COLOR_LABELS[gameState.currentTurn])+' ki Turn');$('status')&&($('status').textContent=gameState.diceRolled?'Goti choose karein.':'Phone next player ko pass karein, phir Dice Roll karein.');$('turnTimer')&&($('turnTimer').textContent='Pass the device');renderTokensUI(previousState);return;}
+  if(passPlayMode){$('lobby')?.classList.add('hidden');$('room')?.classList.remove('hidden');$('roomBadge')&&($('roomBadge').textContent='LOCAL • PASS & PLAY');$('bigRoomCode')&&($('bigRoomCode').textContent='PASS');$('roomStatePill')&&($('roomStatePill').textContent=gameState.status==='FINISHED'?'FINISHED':'PASS & PLAY');$('waitingBox')?.classList.add('hidden');$('game')?.classList.remove('hidden');renderPlayersUI();if(gameState.status==='FINISHED'){const wc=gameState.winnerColor||gameState.currentTurn,w=gameState.winnerName||COLOR_LABELS[wc];$('turnText')&&($('turnText').textContent='🏆 '+w+' Wins!');$('status')&&($('status').textContent=w+' is the Ludo Champion! 🎉');$('rollBtn')&&($('rollBtn').disabled=true);renderTokensUI(previousState);if(lastWinnerKey!=='pass:'+wc+':'+w){lastWinnerKey='pass:'+wc+':'+w;showWinnerCelebration(wc);}return;}const rb=$('rollBtn');if(rb){const botTurn=isComputerTurn();rb.disabled=!!gameState.diceRolled||botTurn;rb.classList.toggle('is-my-turn',!gameState.diceRolled&&!botTurn);}$('diceFace')&&($('diceFace').textContent=gameState.diceValue?DICE_ICONS[gameState.diceValue-1]:'🎲');$('turnText')&&($('turnText').textContent=(gameState.players?.[gameState.currentTurn]?.isComputer?'🤖 ':'')+(gameState.players?.[gameState.currentTurn]?.name||COLOR_LABELS[gameState.currentTurn])+' ki Turn');$('status')&&($('status').textContent=gameState.diceRolled?'Goti choose karein.':'Phone next player ko pass karein, phir Dice Roll karein.');$('turnTimer')&&($('turnTimer').textContent='Pass the device');renderTokensUI(previousState);return;}
   $('lobby')?.classList.add('hidden');
   $('room')?.classList.remove('hidden');
   $('roomBadge') && ($('roomBadge').textContent = `ROOM — ${roomId || '—'}`);
@@ -720,7 +883,7 @@ async function startGame() {
   showToast(`Game started${count < required ? ` (${count} players)` : ''}!`);
 }
 
-function rollDice() { if(passPlayMode)return rollPassPlayDice(); if (!gameState || !db || gameState.status !== 'PLAYING') return;
+function rollDice() { if(passPlayMode)return rollPassPlayDice(false); if (!gameState || !db || gameState.status !== 'PLAYING') return;
   if (gameState.currentTurn !== myPlayerColor) return showToast('Aapka turn nahi hai.');
   if (gameState.diceRolled) return showToast('Pehle current dice ka token move karein.');
 
@@ -783,7 +946,7 @@ async function moveTokenAndResolve(tokenId, dice, automatic = false) {
     if (!startCoord) return;
   }
   const reachedHome = newPosition === FINISH_POSITION;
-  const target = newPosition < TRACK_LENGTH - 1 ? getAbsoluteTrackPosition(myPlayerColor, newPosition) : null;
+  const target = newPosition < TRACK_LENGTH ? getAbsoluteTrackPosition(myPlayerColor, newPosition) : null;
   const safe = target !== null && SAFE_POSITIONS.includes(target);
   const updates = {};
   let captured = false;
@@ -876,6 +1039,9 @@ async function leaveGameRoom(redirect = true) {
 }
 function cleanupLocal(redirect) {
   clearInterval(turnTimerHandle);
+  clearComputerTurnTimer();
+  passPlayMode=false;
+  computerMode=false;
   roomId = null; myPlayerColor = null; gameState = null; previousGameState = null; roomValueRef = null; roomRefListener = null; lastWinnerKey = null;
   if (!redirect) return;
   $('lobby')?.classList.remove('hidden');
